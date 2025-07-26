@@ -350,7 +350,7 @@ async def send_to_channel(chap):
         
         # Enhanced footer with team info
         embed.set_footer(
-            text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق قبعة القش",
+            text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق ستراو هات",
             icon_url="https://olympustaff.com/images/teams/9c0db844720e541fe7597589c3256c72.jpg"
         )
         
@@ -363,7 +363,7 @@ async def send_to_channel(chap):
         # Add fields for better organization
         embed.add_field(
             name="📋 الفريق",
-            value="فريق قبعة القش",
+            value="فريق ستراو هات",
             inline=True
         )
         embed.add_field(
@@ -503,7 +503,7 @@ async def status(ctx):
         inline=True
     )
     
-    status_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق قبعة القش")
+    status_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق ستراو هات")
     
     await ctx.send(embed=status_embed)
 
@@ -547,7 +547,7 @@ async def help_ar(ctx):
         inline=False
     )
     
-    help_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق قبعة القشظ")
+    help_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق ستراو هاتظ")
     
     await ctx.send(embed=help_embed)
 
