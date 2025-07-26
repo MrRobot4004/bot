@@ -355,8 +355,8 @@ async def send_to_channel(chap):
             icon_url="https://cdn.discordapp.com/emojis/1234567890123456789.png"
         )
 
-        # Send message with @everyone mention and enhanced styling
-        await channel.send(content="🚨 @everyone 🚨", embed=embed)
+        # Send message with @all-series mention and enhanced styling
+        await channel.send(content="🚨 @all-series 🚨", embed=embed)
         print(f"📤 Sent enhanced notification for: {chap['title']} - Chapter {chap['chapter']}")
         
     except Exception as e:
