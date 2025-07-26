@@ -1,0 +1,10 @@
+{
+  "urls_to_monitor": [
+    "http://localhost:5000/ping",
+    "http://localhost:5000/health",
+    "http://localhost:5000/status"
+  ],
+  "check_interval": "2 minutes",
+  "timeout": "10 seconds",
+  "description": "Discord Manga Bot Keep-Alive Service"
+}
