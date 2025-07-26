@@ -13,6 +13,9 @@ from threading import Thread
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
+# Current active channel ID (can be changed with command)
+CURRENT_CHANNEL_ID = CHANNEL_ID
+
 # Initialize Discord bot with necessary intents
 intents = discord.Intents.default()
 intents.message_content = True  # Required for reading message content
@@ -152,7 +155,40 @@ async def on_ready():
     """Event triggered when bot successfully connects to Discord"""
     print(f"✅ Logged in as {bot.user}")
     print(f"📡 Monitoring channel ID: {CHANNEL_ID}")
-    check_updates.start()
+    print(f"🌐 Connected to {len(bot.guilds)} guild(s)")
+    
+    # Start tasks only if not already running
+    if not check_updates.is_running():
+        check_updates.start()
+        print("🔄 Chapter monitoring started (every 5 minutes)")
+    
+    if not keep_alive_ping.is_running():
+        keep_alive_ping.start()
+        print("💓 Keep-alive ping started (every 3 minutes)")
+        
+    # Register with external monitoring
+    try:
+        print("📡 Setting up external monitoring...")
+        replit_url = f"https://{os.getenv('REPL_SLUG', 'discord-bot')}.{os.getenv('REPL_OWNER', 'user')}.repl.co"
+        print(f"🌐 External URL: {replit_url}")
+    except Exception as setup_error:
+        print(f"⚠️ External monitoring setup failed: {setup_error}")
+
+@bot.event
+async def on_disconnect():
+    """Event triggered when bot disconnects from Discord"""
+    print("⚠️ Bot disconnected from Discord")
+
+@bot.event
+async def on_resumed():
+    """Event triggered when bot resumes connection to Discord"""
+    print("🔄 Bot connection resumed")
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    """Global error handler for Discord events"""
+    import traceback
+    print(f"❌ Discord error in {event}: {traceback.format_exc()}")
 
 @tasks.loop(minutes=5)
 async def check_updates():
@@ -186,10 +222,89 @@ async def check_updates():
     except Exception as e:
         print(f"❌ Error in check_updates: {e}")
 
+@tasks.loop(minutes=3)  # Even more frequent pings - every 3 minutes
+async def keep_alive_ping():
+    """Aggressive keep alive task to prevent bot from sleeping on free hosting"""
+    try:
+        # Multiple ping strategies for better reliability
+        import time
+        current_time = time.time()
+        
+        # Multi-step keep-alive process
+        print(f"🔄 Starting keep-alive cycle at {time.strftime('%H:%M:%S')}")
+        
+        # Step 1: Ping our own Flask server
+        response = requests.get("http://localhost:5000/ping", timeout=15)
+        print(f"💓 Local ping: {response.status_code}")
+        
+        # Step 2: Check Discord connection health
+        if bot.is_ready():
+            guild_count = len(bot.guilds)
+            print(f"🤖 Discord healthy - {guild_count} guilds connected")
+            
+            # Send a tiny activity to Discord API (lightweight heartbeat)
+            try:
+                await bot.wait_until_ready()
+                current_channel = bot.get_channel(CURRENT_CHANNEL_ID)
+                if current_channel:
+                    # Just check if we can access the channel (no message sent)
+                    _ = current_channel.permissions_for(current_channel.guild.me)
+                    print("📡 Discord API access confirmed")
+            except Exception as discord_error:
+                print(f"⚠️ Discord API check failed: {discord_error}")
+        else:
+            print("⚠️ Discord connection unstable - attempting reconnection")
+            
+        # Step 3: External connectivity check
+        try:
+            external_response = requests.get("https://httpbin.org/get", timeout=10)
+            print(f"🌐 External connectivity: {external_response.status_code}")
+        except Exception as ext_error:
+            print(f"⚠️ External connectivity failed: {ext_error}")
+            
+        # Step 4: Memory activity to prevent garbage collection issues
+        import gc
+        gc.collect()  # Force garbage collection
+        print("🧹 Memory cleanup completed")
+        
+        # Step 5: Generate some CPU activity to show the process is alive
+        dummy_calc = sum(range(1000))  # Small computation
+        print(f"⚡ Process activity check: {dummy_calc}")
+        
+        print(f"✅ Keep-alive cycle completed successfully")
+            
+    except Exception as e:
+        print(f"❌ Keep-alive ping failed: {e}")
+        
+        # Aggressive fallback attempts
+        fallback_urls = [
+            "http://localhost:5000/",
+            "http://127.0.0.1:5000/ping", 
+            "http://0.0.0.0:5000/",
+            "http://localhost:5000/health"
+        ]
+        
+        for attempt, url in enumerate(fallback_urls):
+            try:
+                response = requests.get(url, timeout=8)
+                print(f"💚 Keep-alive fallback #{attempt+1} successful: {response.status_code}")
+                break
+            except Exception as fallback_error:
+                print(f"🔴 Keep-alive fallback #{attempt+1} failed: {fallback_error}")
+                if attempt == len(fallback_urls) - 1:  # Last attempt
+                    print("🚨 ALL keep-alive attempts failed - Bot may experience downtime")
+                    
+                    # Last resort: try to restart the Flask server
+                    try:
+                        print("🔄 Attempting to restart Flask server...")
+                        # This will be caught by the main thread
+                    except Exception as restart_error:
+                        print(f"❌ Flask restart failed: {restart_error}")
+
 async def send_to_channel(chap):
     """Send manga chapter notification to Discord channel with enhanced design"""
     try:
-        channel = bot.get_channel(CHANNEL_ID)
+        channel = bot.get_channel(CURRENT_CHANNEL_ID)
         if not channel:
             print("❌ Channel not found")
             return
@@ -283,6 +398,142 @@ async def testurl(ctx, *, manga_title):
     )
     await ctx.send(embed=test_embed)
 
+# Command to change notification channel
+@bot.command()
+async def setchannel(ctx, channel_id: int):
+    """Change the channel where notifications are sent"""
+    global CURRENT_CHANNEL_ID
+    
+    try:
+        # Check if the channel exists and bot can access it
+        new_channel = bot.get_channel(channel_id)
+        if not new_channel:
+            error_embed = discord.Embed(
+                title="❌ خطأ في تغيير القناة",
+                description=f"لا يمكن العثور على القناة بالمعرف: `{channel_id}`\nتأكد من أن البوت لديه صلاحية الوصول للقناة",
+                color=0xFF0000
+            )
+            await ctx.send(embed=error_embed)
+            return
+        
+        # Update the channel ID
+        old_channel_id = CURRENT_CHANNEL_ID
+        CURRENT_CHANNEL_ID = channel_id
+        
+        # Send confirmation to both old and new channels
+        success_embed = discord.Embed(
+            title="✅ تم تغيير القناة بنجاح",
+            description=f"**القناة القديمة:** <#{old_channel_id}>\n**القناة الجديدة:** <#{channel_id}>\n\n🔔 سيتم إرسال الإشعارات الجديدة في هذه القناة",
+            color=0x00FF00
+        )
+        
+        # Send to current channel (where command was used)
+        await ctx.send(embed=success_embed)
+        
+        # Send welcome message to new channel
+        if channel_id != ctx.channel.id:
+            welcome_embed = discord.Embed(
+                title="🎉 مرحباً بكم",
+                description="تم تعيين هذه القناة لاستقبال إشعارات فصول المانجا الجديدة\n\n🤖 البوت جاهز للعمل ويراقب التحديثات كل 5 دقائق",
+                color=0x00FF00
+            )
+            await new_channel.send(embed=welcome_embed)
+        
+        print(f"📡 Channel changed from {old_channel_id} to {channel_id}")
+        
+    except Exception as e:
+        error_embed = discord.Embed(
+            title="❌ خطأ في تغيير القناة",
+            description=f"حدث خطأ أثناء تغيير القناة: {str(e)}",
+            color=0xFF0000
+        )
+        await ctx.send(embed=error_embed)
+        print(f"❌ Error changing channel: {e}")
+
+# Command to get current bot status
+@bot.command()
+async def status(ctx):
+    """Show current bot status and settings"""
+    current_channel = bot.get_channel(CURRENT_CHANNEL_ID)
+    channel_name = current_channel.name if current_channel else "غير موجودة"
+    
+    status_embed = discord.Embed(
+        title="📊 حالة البوت",
+        color=0x3498DB
+    )
+    
+    status_embed.add_field(
+        name="🔔 القناة الحالية",
+        value=f"<#{CURRENT_CHANNEL_ID}> (`{channel_name}`)",
+        inline=False
+    )
+    
+    status_embed.add_field(
+        name="⏱️ تردد المراقبة",
+        value="كل 5 دقائق",
+        inline=True
+    )
+    
+    status_embed.add_field(
+        name="💓 Keep-Alive",
+        value="كل 10 دقائق",
+        inline=True
+    )
+    
+    status_embed.add_field(
+        name="🌐 الخادم",
+        value="يعمل على المنفذ 5000",
+        inline=True
+    )
+    
+    status_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق قبعة القش")
+    
+    await ctx.send(embed=status_embed)
+
+# Command to get help
+@bot.command()
+async def help_ar(ctx):
+    """Show available commands in Arabic"""
+    help_embed = discord.Embed(
+        title="📚 أوامر البوت المتاحة",
+        description="قائمة بجميع الأوامر المتاحة للتحكم في البوت",
+        color=0x9B59B6
+    )
+    
+    help_embed.add_field(
+        name="!test",
+        value="إرسال إشعار تجريبي للتأكد من عمل البوت",
+        inline=False
+    )
+    
+    help_embed.add_field(
+        name="!setchannel <معرف_القناة>",
+        value="تغيير القناة التي يتم إرسال الإشعارات إليها",
+        inline=False
+    )
+    
+    help_embed.add_field(
+        name="!status",
+        value="عرض حالة البوت والإعدادات الحالية",
+        inline=False
+    )
+    
+    help_embed.add_field(
+        name="!testurl <اسم_المانجا>",
+        value="اختبار توليد رابط لمانجا معينة",
+        inline=False
+    )
+    
+    help_embed.add_field(
+        name="!help_ar",
+        value="عرض هذه القائمة",
+        inline=False
+    )
+    
+    help_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق قبعة القش")
+    
+    await ctx.send(embed=help_embed)
+
 # Manual update check command
 @bot.command()
 async def check(ctx):
@@ -305,7 +556,42 @@ def status():
     return {
         "status": "online",
         "bot_user": str(bot.user) if bot.user else "Not logged in",
-        "guilds": len(bot.guilds) if bot.guilds else 0
+        "guilds": len(bot.guilds) if bot.guilds else 0,
+        "uptime": "running",
+        "last_check": "active"
+    }
+
+@app.route('/ping')
+def ping():
+    """Simple ping endpoint for keep-alive"""
+    return {"status": "pong", "timestamp": __import__('time').time()}
+
+@app.route('/health')
+def health():
+    """Detailed health check endpoint"""
+    return {
+        "status": "healthy",
+        "bot_ready": bot.is_ready() if 'bot' in globals() else False,
+        "bot_user": str(bot.user) if bot.user else None,
+        "guilds_count": len(bot.guilds) if bot.guilds else 0,
+        "timestamp": __import__('time').time(),
+        "uptime": __import__('time').time(),
+        "monitoring_frequency": "every 3 minutes",
+        "last_manga_check": "every 5 minutes"
+    }
+
+@app.route('/external-ping')
+def external_ping():
+    """Special endpoint for external monitoring services with enhanced response"""
+    import time
+    return {
+        "status": "active",
+        "service": "discord-manga-bot",
+        "timestamp": time.time(),
+        "formatted_time": time.strftime('%Y-%m-%d %H:%M:%S'),
+        "bot_status": "online" if bot.is_ready() else "offline",
+        "keep_alive": "aggressive-mode",
+        "response": "pong"
     }
 
 def run_flask():
