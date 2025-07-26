@@ -319,31 +319,34 @@ async def send_to_channel(chap):
         desc = f"""
 {phrase}
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 **تفاصيل الإصدار:**
 📖 **الفصل:** `{chap['chapter']}`
 🕐 **تاريخ النشر:** <t:{int(__import__('time').time())}:R>
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔗 **[اقرأ الفصل الآن]({chap['url']})**
         """.strip()
 
-        # Enhanced color scheme - alternating colors for visual appeal
-        colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0x96CEB4, 0xFECA57, 0xFF9FF3, 0x54A0FF]
+        # Enhanced color scheme - use Straw Hat-themed colors
+        colors = [
+            0xFF0000,  # Red (Straw Hat theme)
+            0xFFD700,  # Gold (pirate treasure vibe)
+            0x000000,  # Black (pirate flag)
+            0x1E90FF,  # Blue (ocean theme)
+        ]
         selected_color = random.choice(colors)
 
         # Create rich embed message with enhanced styling
         embed = discord.Embed(
             title=f"{title_phrase} {chap['title']}",
             description=desc,
-            color=selected_color
+            color=selected_color,
+            url=chap['url']  # Make the title clickable to the manga URL
         )
         
-        # Add thumbnail image if available
+        # Add larger image using set_image instead of set_thumbnail
         if chap['image']:
             image_url = chap['image']
             if image_url.startswith('/'):
                 image_url = f"https://olympustaff.com{image_url}"
-            embed.set_thumbnail(url=image_url)
+            embed.set_image(url=image_url)  # Use set_image for larger display
         
         # Enhanced footer with team info
         embed.set_footer(
@@ -355,6 +358,18 @@ async def send_to_channel(chap):
         embed.set_author(
             name="🔔 إشعار فصل جديد",
             icon_url="https://cdn.discordapp.com/emojis/1234567890123456789.png"
+        )
+        
+        # Add fields for better organization
+        embed.add_field(
+            name="📋 الفريق",
+            value="فريق قبعة القش",
+            inline=True
+        )
+        embed.add_field(
+            name="🔗 قراءة الفصل",
+            value=f"[اقرأ الآن]({chap['url']})",
+            inline=True
         )
 
         # Send message with @all-series mention and enhanced styling
