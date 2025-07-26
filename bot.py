@@ -169,7 +169,7 @@ async def on_ready():
     # Register with external monitoring
     try:
         print("📡 Setting up external monitoring...")
-        replit_url = f"https://{os.getenv('REPL_SLUG', 'discord-bot')}.{os.getenv('REPL_OWNER', 'user')}.repl.co"
+        replit_url = f"https://{os.getenv('REPL_SLUG', 'discord-bot')}.{os.getenv('REPL_OWNER', 'user')}.repl.doc"
         print(f"🌐 External URL: {replit_url}")
     except Exception as setup_error:
         print(f"⚠️ External monitoring setup failed: {setup_error}")
@@ -178,29 +178,31 @@ async def on_ready():
 async def on_disconnect():
     """Event triggered when bot disconnects from Discord"""
     print("⚠️ Bot disconnected from Discord")
-
+    
 @bot.event
 async def on_resumed():
     """Event triggered when bot resumes connection to Discord"""
     print("🔄 Bot connection resumed")
 
+    
 @bot.event
 async def on_error(event, *args, **kwargs):
     """Global error handler for Discord events"""
     import traceback
     print(f"❌ Discord error in {event}: {traceback.format_exc()}")
 
-@tasks.loop(minutes=5)
+    
+@tasks.loop(minutes=300)
 async def check_updates():
     """Scheduled task to check for new manga chapters every 5 minutes"""
-    print("🔄 Checking for updates...")
+    print("🔍 Checking for updates...")
     
     try:
         seen = load_seen()
         chapters = fetch_chapters()
         
         if not chapters:
-            print("⚠️ No chapters found or error occurred")
+            print("⚠️ No chapters found or or error occurred")
             return
             
         # Find new chapters that haven't been seen before
@@ -356,7 +358,7 @@ async def send_to_channel(chap):
         )
 
         # Send message with @all-series mention and enhanced styling
-        await channel.send(content="🚨 @all-series 🚨", embed=embed)
+        await channel.send(content="🚨 <@&1332317530685177908> 🚨", embed=embed)
         print(f"📤 Sent enhanced notification for: {chap['title']} - Chapter {chap['chapter']}")
         
     except Exception as e:
@@ -476,7 +478,7 @@ async def status(ctx):
     
     status_embed.add_field(
         name="💓 Keep-Alive",
-        value="كل 10 دقائق",
+        value="كل 3 دقائق",
         inline=True
     )
     
@@ -511,7 +513,7 @@ async def help_ar(ctx):
         value="تغيير القناة التي يتم إرسال الإشعارات إليها",
         inline=False
     )
-    
+        
     help_embed.add_field(
         name="!status",
         value="عرض حالة البوت والإعدادات الحالية",
@@ -520,7 +522,7 @@ async def help_ar(ctx):
     
     help_embed.add_field(
         name="!testurl <اسم_المانجا>",
-        value="اختبار توليد رابط لمانجا معينة",
+        title="اختبار توليد رابط لمانجا معينة",
         inline=False
     )
     
@@ -530,7 +532,7 @@ async def help_ar(ctx):
         inline=False
     )
     
-    help_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق قبعة القش")
+    help_embed.set_footer(text="🏴‍☠️ Straw Hat Team • مترجم بواسطة فريق قبعة القشظ")
     
     await ctx.send(embed=help_embed)
 
@@ -548,7 +550,7 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     """Simple health check endpoint"""
-    return "🤖 Discord Manga Bot is running!"
+    return "🤖‍♂ Discord Bot is running!"
 
 @app.route('/status')
 def status():
@@ -563,15 +565,15 @@ def status():
 
 @app.route('/ping')
 def ping():
-    """Simple ping endpoint for keep-alive"""
+    """Simple ping test endpoint for keep-alive"""
     return {"status": "pong", "timestamp": __import__('time').time()}
 
 @app.route('/health')
 def health():
-    """Detailed health check endpoint"""
+    """Detailed health check"""
     return {
         "status": "healthy",
-        "bot_ready": bot.is_ready() if 'bot' in globals() else False,
+        "bot_ready": bot.is_ready() if 'bot' in globals() else globals(),
         "bot_user": str(bot.user) if bot.user else None,
         "guilds_count": len(bot.guilds) if bot.guilds else 0,
         "timestamp": __import__('time').time(),
@@ -612,7 +614,7 @@ async def on_command_error(ctx, error):
         await ctx.send("❌ الأمر غير موجود! استخدم `!help` لرؤية الأوامر المتاحة.")
     else:
         print(f"Command error: {error}")
-        await ctx.send("❌ حدث خطأ أثناء تنفيذ الأمر.")
+        await ctx.send(f"❌ حدث خطأ أثناء تنفيذ الأمر: {str(error)}")
 
 # Main execution
 if __name__ == "__main__":
