@@ -23,9 +23,12 @@ CHANNELS_FILE = "channels.json"
 # Load channel registrations
 if os.path.exists(CHANNELS_FILE):
     with open(CHANNELS_FILE, "r", encoding="utf-8") as f:
-        user_channel_ids = json.load(f)
-else:
-    user_channel_ids = {}
+        data = json.load(f)
+        if isinstance(data, dict):
+            user_channel_ids = data
+        else:
+            print("⚠️ ملف القنوات غير صحيح، سيتم تجاهله.")
+            user_channel_ids = {}
 
 def save_channels():
     with open(CHANNELS_FILE, "w", encoding="utf-8") as f:
