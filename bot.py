@@ -178,7 +178,7 @@ async def send_to_channel(channel_id, chap):
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="📖 اقرأ الآن", url=chap["url"], style=discord.ButtonStyle.link))
 
-        await channel.send(content="🚨 @everyone 🚨", embed=embed, view=view)
+        await channel.send(content="🚨 @1332317530685177908 🚨", embed=embed, view=view)
         print(f"📤 Sent notification: {chap['title']} - Chapter {chap['chapter']}")
     except Exception as e:
         print(f"❌ Error sending message: {e}")
