@@ -8,6 +8,7 @@ import os
 import time
 import random
 from datetime import datetime, timezone
+import asyncio
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -77,40 +78,45 @@ async def setchannel(ctx):
 
     await ctx.send("✅ تم حفظ الإعدادات بنجاح!")
 
-def fetch_latest_chapter():
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        url = "https://olympustaff.com/ajax/get-manga-lastChapter/44"
-        response = requests.get(url, headers=headers)
+def fetch_latest_chapter(max_retries=3, delay=5):
+    for attempt in range(max_retries):
+        try:
+            headers = {"User-Agent": "Mozilla/5.0"}
+            url = "https://olympustaff.com/ajax/get-manga-lastChapter/44"
+            response = requests.get(url, headers=headers, timeout=10)  # إضافة مهلة زمنية
 
-        if response.status_code != 200 or not response.text.strip():
-            print(f"⚠️ الرد غير صالح أو فشل الطلب: {response.status_code}")
-            return None
+            if response.status_code != 200 or not response.text.strip():
+                print(f"⚠️ الرد غير صالح أو فشل الطلب: {response.status_code}")
+                return None
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        item = soup.select_one(".list-group-item")
-        if not item:
-            print("❌ لم يتم العثور على أي فصول.")
-            return None
+            soup = BeautifulSoup(response.text, "html.parser")
+            item = soup.select_one(".list-group-item")
+            if not item:
+                print("❌ لم يتم العثور على أي فصول.")
+                return None
 
-        title = item.select_one(".fw-bold").text.strip()
-        chapter_number = item.select_one(".badge").text.strip().replace("الفصل رقم ", "")
-        chapter_date = item.select_one(".date-time").text.strip()
-        image = item.select_one("img")
-        image_url = image["src"] if image else None
+            title = item.select_one(".fw-bold").text.strip()
+            chapter_number = item.select_one(".badge").text.strip().replace("الفصل رقم ", "")
+            chapter_date = item.select_one(".date-time").text.strip()
+            image = item.select_one("img")
+            image_url = image["src"] if image else None
 
-        manga_url = f"https://olympustaff.com/series/{title.lower().replace(' ', '-').replace('’', '').replace("'", '')}"
+            manga_url = f"https://olympustaff.com/series/{title.lower().replace(' ', '-').replace('’', '').replace("'", '')}"
 
-        return {
-            "title": title,
-            "chapter": chapter_number,
-            "date": chapter_date,
-            "url": manga_url,
-            "image": image_url
-        }
-    except Exception as e:
-        print(f"❌ Error during check: {e}")
-        return None
+            return {
+                "title": title,
+                "chapter": chapter_number,
+                "date": chapter_date,
+                "url": manga_url,
+                "image": image_url
+            }
+        except requests.exceptions.RequestException as e:
+            print(f"❌ محاولة {attempt + 1} فشلت: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(delay)  # الانتظار قبل المحاولة التالية
+            else:
+                print(f"❌ فشل جميع المحاولات: {e}")
+                return None
 
 @tasks.loop(seconds=30)
 async def check_for_new_chapters():
